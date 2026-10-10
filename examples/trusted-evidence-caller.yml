@@ -1,0 +1,22 @@
+name: trusted-evidence
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-conformance.yml@0000000000000000000000000000000000000000
+  attest:
+    needs: conformance
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-attestation.yml@0000000000000000000000000000000000000000
+    permissions:
+      contents: read
+      id-token: write
+  verify:
+    needs: attest
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-verification.yml@0000000000000000000000000000000000000000

@@ -1,10 +1,11 @@
 # Zero Trust GitHub Workflows
 
-`bodharma/zero-trust-workflows` provides one supported V1 reusable GitHub
-Actions workflow for Python repositories using uv. It checks out the caller's
-repository, installs and selects Python 3.13 with uv 0.13.0, runs
-`uv sync --locked --dev`, and executes the caller's fixed `make check` target
-on `ubuntu-latest`, with a 10-minute job timeout.
+`bodharma/zero-trust-workflows` provides a supported V1 reusable GitHub Actions
+check workflow for Python repositories using uv. It also defines a fixed
+trusted-evidence chain for its next release: conformance, main-only keyless
+attestation, and independent verification. These workflows deliberately expose
+no inputs or secrets. A caller can select the reviewed workflow commit, but
+cannot replace a command, runner, tool version, artifact path, or policy gate.
 
 ## Prerequisites and local checks
 
@@ -43,21 +44,119 @@ merging. To roll back, restore the previous reviewed SHA in the caller and
 rerun its CI.
 Local `./` workflow references resolve at the same commit as the caller workflow.
 
+## Trusted evidence chain
+
+The chain separates observation, signing authority, and authorization. Evidence
+is data about a run; it is not trusted merely because a test produced it or an
+artifact transported it. Trust is established only after an exact identity and
+context verification, followed by the checked-out promotion policy.
+
+```mermaid
+flowchart LR
+  M[Consumer push to main] --> C[conformance job]
+  C -->|ztbp-evidence| A[attest job]
+  O[GitHub OIDC token] -. only here .-> A
+  A -->|ztbp-attested-evidence| V[verify job]
+  T[Checked-out trust policy] --> A
+  T --> V
+  V --> P[main-conformance policy]
+  P -->|pass| D[ztbp-promotion-input]
+  P -->|deny or error| X[stop]
+```
+
+| Workflow | What its only job means | Permission | Fixed result |
+| --- | --- | --- | --- |
+| `reusable-conformance.yml` | `conformance` builds the repository's pinned AMD64 workload and runs its Kubernetes evidence producer | `contents: read` | `ztbp-evidence` |
+| `reusable-evidence-attestation.yml` | `attest` revalidates the evidence, creates its deterministic index, and keylessly signs that index | `contents: read`, plus job-scoped `id-token: write` | `ztbp-attested-evidence` |
+| `reusable-evidence-verification.yml` | `verify` verifies the Sigstore bundle and exact producer context, then evaluates `main-conformance` | `contents: read` | `ztbp-promotion-input` after policy success |
+
+The `conformance` job has a 30-minute timeout because it builds a container and
+starts kind. Attestation and verification each have a 10-minute timeout. A
+timeout is a denial, never an implicit success.
+
+### What the fixed pieces protect
+
+| Fixed piece | Meaning |
+| --- | --- |
+| Full action commit SHA | GitHub executes the reviewed action revision rather than a mutable tag |
+| uv 0.13.0 and Python 3.13 | Dependency resolution and the consumer runtime stay on the tested contract |
+| kind 0.33.0 checksum | The directly downloaded Kubernetes harness must match the reviewed Linux AMD64 bytes |
+| kubectl 1.35.9 and Cosign 3.1.3 | Cluster and signature behavior cannot silently move to another version |
+| `main` push guard | OIDC signing cannot run for pull-request code, another branch, or a manual event |
+
+Each workflow prints and asserts its tool versions before dependency installation
+or consumer commands. Setup actions are pinned, and the kind binary receives a
+second, byte-level SHA-256 check. The artifact actions are also pinned. Hidden
+file upload is enabled only because the exact allow-listed paths live below
+`.artifacts/`; it does not widen the upload to the repository.
+
+### Artifacts are transport, not trust
+
+`ztbp-evidence` contains only `.artifacts/trusted/evidence`. It is an unsigned
+producer output and must not authorize promotion. `ztbp-attested-evidence`
+contains that evidence plus `evidence-index.json` and its modern Sigstore bundle,
+`evidence-index.sigstore.json`. Verification downloads the set, checks every
+digest and identity claim, and creates a new normalized
+`promotion-input.json`. Only that normalized input reaches Rego.
+
+`ztbp-promotion-input` retains only the normalized policy input for seven days so
+a failed or successful decision can be diagnosed without publishing the raw
+repository. It is uploaded only after signature verification and
+`make promotion-check` succeed. All uploads fail when their exact expected files
+are absent, and every artifact expires after seven days.
+
+### Adopt the chain
+
+1. Provide the fixed `make trusted-evidence` and `make promotion-check` contracts,
+   a locked uv project, the gate `main-conformance`, and `trust/github-main.yaml`.
+2. Copy [examples/trusted-evidence-caller.yml](examples/trusted-evidence-caller.yml)
+   to `.github/workflows/trusted-evidence.yml` in the consumer repository.
+3. After the trusted-evidence release is reviewed, replace all three all-zero
+   placeholders with the same full 40-character release commit SHA.
+4. Review and bind the consumer trust policy to that workflow SHA, certificate
+   identity, repository ID/name, workflow name, event, and `refs/heads/main`.
+5. Require the verification job in branch or environment protection before any
+   separate deployment workflow consumes the decision.
+
+The caller also repeats the exact main-push guard and delegates `id-token: write`
+only to the attestation call. GitHub does not let a called workflow elevate above
+its caller, so both sides are required. Conformance and verification never receive
+OIDC permission. The all-zero SHA is an intentionally non-released placeholder;
+the example is documentation until the release process replaces it with the
+reviewed commit.
+
+### Fail-closed behavior
+
+The chain stops when a download is missing, a checksum or asserted version
+differs, the producer command fails, the signing context is not the protected
+main push, Cosign cannot prove the exact issuer and identity, evidence or index
+bytes differ, a required assertion is absent, or Rego denies the normalized
+input. Later jobs use `needs`, so an earlier failure or skipped attestation does
+not fall through to verification.
+
+The artifact service is not a trust anchor. The attestation covers the index,
+the index binds the evidence bytes and producer context, and verification uses
+policy from the independently checked-out consumer commit. Deployment remains a
+separate responsibility; these workflows produce and verify a promotion
+decision but do not deploy anything.
+
 ## Trust boundary and non-goals
 
-Do not pass secrets, use `secrets: inherit`, or add secret expressions. V1 has
-no inputs, secret contract, deployment credentials, OIDC permissions, or
+Do not pass secrets, use `secrets: inherit`, or add secret expressions. The
+workflows have no input or secret contract, deployment credentials, or
 customer-specific configuration. GitHub still supplies its built-in
-`GITHUB_TOKEN`, restricted here to reading repository contents. The workflow
-runs the caller's dependency installation and `make check`; only run it on
-code you are prepared to execute in that repository's CI boundary.
+`GITHUB_TOKEN`, restricted here to reading repository contents. The trusted
+evidence chain adds OIDC only to the job and event described above. Every
+workflow runs caller-controlled code after version checks; use it only on code
+you are prepared to execute in that repository's CI boundary.
 
 Deployment, infrastructure provisioning, cloud authentication, secret
-management, and customizable build orchestration are outside V1. The local
-policy validator checks workflow structure and references; it is not a secret
-scanner, a sandbox, or proof that dependencies and shell commands are safe.
-Supported V1 covers the fixed check contract described above; new capabilities
-require a separately reviewed workflow contract.
+management, and customizable build orchestration remain outside the contract.
+The local policy validator checks workflow structure and references; it is not a
+secret scanner, a sandbox, or proof that dependencies and shell commands are
+safe. A compromised GitHub-hosted runner, pinned third-party action, consumer
+dependency, or consumer `Makefile` remains inside the execution risk boundary.
+New capabilities require a separately reviewed workflow contract.
 
 ## Public copies and private isolation
 
