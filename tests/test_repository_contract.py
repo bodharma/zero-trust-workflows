@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ REUSABLE = ".github/workflows/reusable-python-uv-check.yml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 SETUP_UV = "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884"
 DIRECT_CALLER = "examples/direct-caller.yml"
-EXPERIMENTAL_SHA = "d0789582c00aee75d1f63036b3bf364c9a977599"
+SUPPORTED_SHA = "f19cd36e55729ff60aea65c9b55474835127337c"
 
 
 def test_reusable_workflow_has_the_fixed_check_contract():
@@ -47,7 +48,7 @@ def test_self_ci_only_calls_the_reusable_workflow():
     assert workflow["jobs"] == {"check": {"uses": f"./{REUSABLE}"}}
 
 
-def test_direct_caller_pins_the_experimental_workflow_with_the_self_ci_contract():
+def test_direct_caller_pins_the_supported_workflow_with_the_self_ci_contract():
     workflow, issues = load_document(ROOT, ROOT / DIRECT_CALLER)
     assert issues == []
     assert validate_workflow(workflow, DIRECT_CALLER) == []
@@ -56,9 +57,19 @@ def test_direct_caller_pins_the_experimental_workflow_with_the_self_ci_contract(
         "on": {"pull_request": None, "push": {"branches": ["main"]}},
         "permissions": {"contents": "read"},
         "jobs": {
-            "check": {"uses": f"bodharma/zero-trust-workflows/{REUSABLE}@{EXPERIMENTAL_SHA}"}
+            "check": {"uses": f"bodharma/zero-trust-workflows/{REUSABLE}@{SUPPORTED_SHA}"}
         },
     }
+    assert re.findall(r"\b[0-9a-fA-F]{40}\b", (ROOT / DIRECT_CALLER).read_text()) == [
+        SUPPORTED_SHA
+    ]
+
+
+def test_changelog_records_the_same_supported_workflow_sha():
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    release = re.search(r"^## 1\.0\.0\n(.*?)(?=^## |\Z)", changelog, re.MULTILINE | re.DOTALL)
+    assert release is not None
+    assert re.findall(r"Tested workflow SHA: `([0-9a-f]{40})`", release[1]) == [SUPPORTED_SHA]
 
 
 @pytest.mark.parametrize("relative", [REUSABLE, ".github/workflows/ci.yml", DIRECT_CALLER])

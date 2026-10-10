@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   check:
-    # Experimental pin; adopt the later supported SHA recorded in a reviewed release.
-    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-python-uv-check.yml@d0789582c00aee75d1f63036b3bf364c9a977599
+    # Supported V1; keep the immutable SHA when adopting release updates.
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-python-uv-check.yml@f19cd36e55729ff60aea65c9b55474835127337c
