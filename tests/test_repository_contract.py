@@ -10,7 +10,7 @@ REUSABLE = ".github/workflows/reusable-python-uv-check.yml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 SETUP_UV = "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884"
 DIRECT_CALLER = "examples/direct-caller.yml"
-SUPPORTED_SHA = "f19cd36e55729ff60aea65c9b55474835127337c"
+SUPPORTED_SHA = "80c78d69c9a8aaf969420cfe690bdeae16b95879"
 
 
 def test_reusable_workflow_has_the_fixed_check_contract():
@@ -70,7 +70,7 @@ def test_direct_caller_pins_the_supported_workflow_with_the_self_ci_contract():
 
 def test_changelog_records_the_same_supported_workflow_sha():
     changelog = (ROOT / "CHANGELOG.md").read_text()
-    release = re.search(r"^## 1\.0\.0\n(.*?)(?=^## |\Z)", changelog, re.MULTILINE | re.DOTALL)
+    release = re.search(r"^## 1\.0\.1\n(.*?)(?=^## |\Z)", changelog, re.MULTILINE | re.DOTALL)
     assert release is not None
     assert re.findall(r"Tested workflow SHA: `([0-9a-f]{40})`", release[1]) == [SUPPORTED_SHA]
 

@@ -11,4 +11,4 @@ permissions:
 jobs:
   check:
     # Supported V1; keep the immutable SHA when adopting release updates.
-    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-python-uv-check.yml@f19cd36e55729ff60aea65c9b55474835127337c
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-python-uv-check.yml@80c78d69c9a8aaf969420cfe690bdeae16b95879
