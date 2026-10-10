@@ -77,3 +77,15 @@ def test_invalid_encoding_returns_an_issue(tmp_path):
     document, issues = validate.load_document(tmp_path, path)
     assert document is None
     assert issues[0].startswith("workflow.yml: yaml: ")
+
+
+def test_invalid_yaml_timestamp_returns_a_path_qualified_issue(tmp_path):
+    path = tmp_path / ".github/workflows/check.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text("name: 2026-99-99\n")
+    assert validate.validate_repository(tmp_path) == [
+        ".github/workflows/check.yml: yaml: month must be in 1..12"
+    ]
+    document, issues = validate.load_document(tmp_path, path)
+    assert document is None
+    assert issues == [".github/workflows/check.yml: yaml: month must be in 1..12"]

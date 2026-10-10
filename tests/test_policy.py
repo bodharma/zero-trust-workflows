@@ -291,3 +291,42 @@ def test_issues_are_sorted_across_documents(tmp_path):
         (directory / filename).write_text("name: 1\n")
     issues = validate_repository(tmp_path)
     assert issues and issues == sorted(issues)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "${{ true && secrets.TOKEN }}",
+        "${{ toJSON(secrets) }}",
+        "${{ secrets ['TOKEN'] }}",
+        "${{\n true &&\n secrets.TOKEN\n }}",
+        "${{ format('}}', secrets.TOKEN) }}",
+        "${{ toJSON(SECRETS) }}",
+    ],
+)
+def test_secret_context_anywhere_in_expressions_fails(tmp_path, expression):
+    document = workflow_document()
+    document["env"] = {"TOKEN": expression}
+    path = tmp_path / ".github/workflows/check.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(document))
+    assert validate_repository(tmp_path) == [
+        ".github/workflows/check.yml: env.TOKEN: secret expressions are forbidden"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Documentation mentions secrets.TOKEN",
+        "${{ github.ref }} then secrets.TOKEN",
+        "${{ 'secrets.TOKEN' }}",
+    ],
+)
+def test_secret_prose_outside_expressions_passes(tmp_path, text):
+    document = workflow_document()
+    document["description"] = text
+    path = tmp_path / ".github/workflows/check.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(document))
+    assert validate_repository(tmp_path) == []

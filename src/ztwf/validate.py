@@ -16,7 +16,8 @@ DOCUMENT_GLOBS = (
 EXTERNAL_REF = re.compile(
     r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.@-]+)*@[0-9a-fA-F]{40}$"
 )
-SECRET_EXPRESSION = re.compile(r"\$\{\{\s*secrets(?:\.|\[)")
+# Skip quoted literals while stopping at the enclosing expression boundary.
+SECRET_EXPRESSION = re.compile(r"\$\{\{(?:'(?:[^']|'')*'|(?!\}\})[^'])*?\bsecrets\b", re.IGNORECASE)
 
 
 class WorkflowLoader(yaml.SafeLoader):
@@ -61,7 +62,7 @@ def load_document(root: Path, path: Path) -> tuple[dict[str, object] | None, lis
     try:
         text = path.read_text(encoding="utf-8")
         documents = list(yaml.load_all(text, Loader=WorkflowLoader))
-    except (yaml.YAMLError, OSError, UnicodeError) as error:
+    except (yaml.YAMLError, OSError, ValueError) as error:
         return None, [f"{location}: {getattr(error, 'problem', None) or str(error)}"]
     if len(documents) > 1:
         return None, [f"{location}: expected exactly one document"]
