@@ -28,7 +28,10 @@ def test_reusable_workflow_has_the_fixed_check_contract():
     steps = job["steps"]
     assert steps[:2] == [
         {"uses": CHECKOUT},
-        {"uses": SETUP_UV, "with": {"version": "0.13.0", "enable-cache": True}},
+        {
+            "uses": SETUP_UV,
+            "with": {"version": "0.13.0", "python-version": "3.13", "enable-cache": True},
+        },
     ]
     assert [step.get("run") for step in steps if "run" in step] == [
         "uv python install 3.13",

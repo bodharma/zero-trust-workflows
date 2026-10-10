@@ -2,9 +2,9 @@
 
 `bodharma/zero-trust-workflows` provides one supported V1 reusable GitHub
 Actions workflow for Python repositories using uv. It checks out the caller's
-repository, installs Python 3.13 and uv 0.13.0, runs `uv sync --locked --dev`,
-and executes the caller's fixed `make check` target on `ubuntu-latest`, with a
-10-minute job timeout.
+repository, installs and selects Python 3.13 with uv 0.13.0, runs
+`uv sync --locked --dev`, and executes the caller's fixed `make check` target
+on `ubuntu-latest`, with a 10-minute job timeout.
 
 ## Prerequisites and local checks
 

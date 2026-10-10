@@ -1,8 +1,8 @@
 # Security policy
 
-This workflow is experimental. No supported release or response-time guarantee
-has been established. Review the pinned code and your repository's execution
-boundary before use.
+Supported releases are documented in [CHANGELOG.md](CHANGELOG.md). No
+response-time guarantee has been established. Review the pinned code and your
+repository's execution boundary before use.
 
 Report vulnerabilities through GitHub private vulnerability reporting at
 [Report a vulnerability](https://github.com/bodharma/zero-trust-workflows/security/advisories/new).

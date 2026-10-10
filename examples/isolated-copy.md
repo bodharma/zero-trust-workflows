@@ -23,9 +23,9 @@ public repository and its issues.
 
    Proceed only when `visibility` is `PRIVATE` and `isFork` is `false`.
 
-2. **Import a reviewed release commit.** Review the release and resolve its
-   exact 40-hex SHA. No supported release exists yet; importing the current
-   experimental commit requires accepting its experimental status. Preserve
+2. **Import a reviewed release commit.** Choose a supported release, resolve
+   and review its full tested workflow 40-hex SHA, and use that SHA as the
+   trust anchor. Never use the release tag as the trust anchor. Preserve
    `LICENSE` and attribution when copying. This imports Git history into the
    independent repository created above, without joining the fork network.
 
