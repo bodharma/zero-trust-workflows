@@ -23,7 +23,7 @@ SUPPORTED_SHA = "80c78d69c9a8aaf969420cfe690bdeae16b95879"
 TRUSTED_EVIDENCE_SHA = "f451d058ca9e052997a79e4fc041b051b1f7c942"
 MAIN_GUARD = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
 UV_PYTHON_VERSION_CHECK = """uv --version
-test "$(uv --version)" = "uv 0.13.0"
+uv --version | grep -Eq '^uv 0\\.13\\.0([[:space:]]|$)'
 uv run --no-project --python 3.13 python --version
 uv run --no-project --python 3.13 python -c 'import sys; assert sys.version_info[:2] == (3, 13)'
 """
