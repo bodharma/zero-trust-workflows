@@ -16,8 +16,29 @@ DOCUMENT_GLOBS = (
 EXTERNAL_REF = re.compile(
     r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.@-]+)*@[0-9a-fA-F]{40}$"
 )
-# Skip quoted literals while stopping at the enclosing expression boundary.
-SECRET_EXPRESSION = re.compile(r"\$\{\{(?:'(?:[^']|'')*'|(?!\}\})[^'])*?\bsecrets\b", re.IGNORECASE)
+EXPRESSION_TOKENS = re.compile(r"\$\{\{|\}\}|''|'|[A-Za-z_][A-Za-z0-9_]*|\S")
+
+
+def _contains_secret_expression(text: str) -> bool:
+    in_expression = False
+    quoted = False
+    previous = ""
+    for match in EXPRESSION_TOKENS.finditer(text):
+        token = match.group()
+        if not in_expression:
+            if token == "${{":
+                in_expression = True
+                previous = ""
+            continue
+        if token == "'":
+            quoted = not quoted
+        elif not quoted:
+            if token == "}}":
+                in_expression = False
+            elif token.lower() == "secrets" and previous != ".":
+                return True
+        previous = token
+    return False
 
 
 class WorkflowLoader(yaml.SafeLoader):
@@ -190,7 +211,7 @@ def validate_repository(root: Path) -> list[str]:
                     )
                     if key == "secrets":
                         issues.append(f"{nested_location}: secrets are forbidden")
-                    if isinstance(key, str) and SECRET_EXPRESSION.search(key):
+                    if isinstance(key, str) and _contains_secret_expression(key):
                         issues.append(f"{nested_location}: secret expressions are forbidden")
                     if key == "run" and isinstance(nested, str) and "${{" in nested:
                         issues.append(f"{nested_location}: shell expressions are forbidden")
@@ -199,7 +220,7 @@ def validate_repository(root: Path) -> list[str]:
                 pending.extend(
                     (nested, f"{value_location}[{index}]") for index, nested in enumerate(value)
                 )
-            elif isinstance(value, str) and SECRET_EXPRESSION.search(value):
+            elif isinstance(value, str) and _contains_secret_expression(value):
                 issues.append(f"{value_location}: secret expressions are forbidden")
     return sorted(issues)
 

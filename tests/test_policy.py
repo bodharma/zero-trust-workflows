@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 from shutil import copyfile
 
@@ -326,6 +328,33 @@ def test_secret_context_anywhere_in_expressions_fails(tmp_path, expression):
 def test_secret_prose_outside_expressions_passes(tmp_path, text):
     document = workflow_document()
     document["description"] = text
+    path = tmp_path / ".github/workflows/check.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(document))
+    assert validate_repository(tmp_path) == []
+
+
+def test_long_escaped_expression_literal_finishes_validation(tmp_path):
+    document = workflow_document()
+    document["env"] = {"TEXT": "${{ '" + "''" * 256 + "' }}"}
+    path = tmp_path / ".github/workflows/check.yml"
+    path.parent.mkdir(parents=True)
+    path.write_text(yaml.safe_dump(document))
+    result = subprocess.run(
+        [sys.executable, "-m", "ztwf", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=3,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("expression", ["${{ vars.SECRETS }}", "${{ vars['SECRETS'] }}"])
+def test_properties_of_other_contexts_pass(tmp_path, expression):
+    document = workflow_document()
+    document["env"] = {"TEXT": expression}
     path = tmp_path / ".github/workflows/check.yml"
     path.parent.mkdir(parents=True)
     path.write_text(yaml.safe_dump(document))
