@@ -1,0 +1,9 @@
+name: check
+on: push
+permissions: {}
+jobs:
+  check:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - run: make check

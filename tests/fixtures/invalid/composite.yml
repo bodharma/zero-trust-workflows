@@ -1,0 +1,7 @@
+name: check
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@main
+    - run: echo ${{ secrets.TOKEN }}
+      shell: bash

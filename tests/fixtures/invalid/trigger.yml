@@ -1,0 +1,6 @@
+name: check
+on: pull_request_target
+permissions: {}
+jobs:
+  check:
+    uses: ./.github/workflows/reusable.yml

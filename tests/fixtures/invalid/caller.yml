@@ -1,0 +1,10 @@
+name: check
+on: push
+permissions: {}
+jobs:
+  check:
+    uses: owner/repository/.github/workflows/check.yml@main
+    runs-on: ubuntu-latest
+    steps:
+      - run: make check
+    secrets: inherit
