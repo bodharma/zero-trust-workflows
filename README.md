@@ -1,6 +1,6 @@
 # Zero Trust GitHub Workflows
 
-`bodharma/zero-trust-workflows` provides one experimental V1 reusable GitHub
+`bodharma/zero-trust-workflows` provides one supported V1 reusable GitHub
 Actions workflow for Python repositories using uv. It checks out the caller's
 repository, installs Python 3.13 and uv 0.13.0, runs `uv sync --locked --dev`,
 and executes the caller's fixed `make check` target on `ubuntu-latest`, with a
@@ -29,9 +29,15 @@ the caller's code; the caller needs no fork or copy of this library.
 
 Every external workflow or action reference must use a full 40-hex SHA, never
 a mutable branch or tag. Review the workflow and its pinned actions before
-adopting a SHA. The example currently pins the experimental commit
-`d0789582c00aee75d1f63036b3bf364c9a977599`. No supported release exists yet;
-consumers should adopt the later supported SHA recorded in a reviewed release.
+adopting a SHA. The supported V1 example pins the tested workflow commit
+`f19cd36e55729ff60aea65c9b55474835127337c`, verified by successful
+[canonical CI](https://github.com/bodharma/zero-trust-workflows/actions/runs/38059605717)
+and [consumer main CI](https://github.com/bodharma/zer_trust_infra/actions/runs/38060522185).
+Consumers must keep the full SHA pin even when a `v1.0.0` release label is
+available. To update, review the replacement workflow and action pins, change
+the caller's SHA in a pull request, and require passing caller CI before
+merging. To roll back, restore the previous reviewed SHA in the caller and
+rerun its CI.
 Local `./` workflow references resolve at the same commit as the caller workflow.
 
 ## Trust boundary and non-goals
@@ -47,8 +53,8 @@ Deployment, infrastructure provisioning, cloud authentication, secret
 management, and customizable build orchestration are outside V1. The local
 policy validator checks workflow structure and references; it is not a secret
 scanner, a sandbox, or proof that dependencies and shell commands are safe.
-This experimental project does not yet promise a stable interface or production
-support.
+Supported V1 covers the fixed check contract described above; new capabilities
+require a separately reviewed workflow contract.
 
 ## Public copies and private isolation
 
