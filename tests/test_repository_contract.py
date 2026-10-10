@@ -1,4 +1,5 @@
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -131,6 +132,35 @@ def test_reusable_conformance_has_the_fixed_trusted_evidence_contract():
             }
         },
     }
+
+
+@pytest.mark.parametrize(
+    ("output", "accepted"),
+    [
+        ("uv 0.13.0", True),
+        ("uv 0.13.0 (x86_64-unknown-linux-gnu)", True),
+        ("uv 0.13.1 (x86_64-unknown-linux-gnu)", False),
+        ("uv 0.13.0-rc.1", False),
+        ("uv 0.13.0malformed", False),
+        ("xuv 0.13.0", False),
+    ],
+)
+def test_uv_version_assertion_executes_the_pinned_release_matcher(tmp_path, output, accepted):
+    workflow, issues = load_document(ROOT, ROOT / CONFORMANCE)
+    assert issues == []
+    version_step = workflow["jobs"]["conformance"]["steps"][5]["run"]
+    assertion = version_step.splitlines()[1]
+    uv = tmp_path / "uv"
+    uv.write_text("#!/bin/sh\nprintf '%s\\n' \"$UV_TEST_OUTPUT\"\n")
+    uv.chmod(0o755)
+
+    result = subprocess.run(
+        ["/bin/bash", "-o", "pipefail", "-c", assertion],
+        check=False,
+        env={"PATH": f"{tmp_path}:/usr/bin:/bin", "UV_TEST_OUTPUT": output},
+    )
+
+    assert (result.returncode == 0) is accepted
 
 
 def test_reusable_attestation_has_the_fixed_main_only_contract():
