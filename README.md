@@ -34,9 +34,9 @@ adopting a SHA. The supported V1 example pins the tested workflow commit
 [canonical CI](https://github.com/bodharma/zero-trust-workflows/actions/runs/38070964419)
 and [consumer main CI](https://github.com/bodharma/zer_trust_infra/actions/runs/38071226452)
 at consumer commit `e6dee7d7c8a8727a8bbd10f86bc44ef80cab2271`.
-The `v1.0.1` release entry is being prepared for this Python 3.13 selection
-correction; immutable `v1.0.0` is superseded by the correction. Consumers must
-keep the full SHA pin even when a `v1.0.1` release label becomes available.
+The [published `v1.0.1` release](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.0.1)
+contains this Python 3.13 selection correction; immutable `v1.0.0` is superseded
+by the correction. Consumers must keep the full SHA pin when adopting `v1.0.1`.
 To update, review the replacement workflow and action pins, change
 the caller's SHA in a pull request, and require passing caller CI before
 merging. To roll back, restore the previous reviewed SHA in the caller and
