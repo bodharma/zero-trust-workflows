@@ -16,7 +16,22 @@ DOCUMENT_GLOBS = (
 EXTERNAL_REF = re.compile(
     r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.@-]+)*@[0-9a-fA-F]{40}$"
 )
+ATTESTATION_REF = re.compile(
+    r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/\.github/workflows/"
+    r"reusable-evidence-attestation\.yml@[0-9a-fA-F]{40}$"
+)
+JOB_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 EXPRESSION_TOKENS = re.compile(r"\$\{\{|\}\}|''|'|[A-Za-z_][A-Za-z0-9_]*|\S")
+ATTESTATION_WORKFLOW = ".github/workflows/reusable-evidence-attestation.yml"
+MAIN_PUSH_GUARD = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+OIDC_PERMISSIONS = {"contents": "read", "id-token": "write"}
+PROHIBITED_COSIGN_FLAGS = (
+    "--insecure-ignore-tlog",
+    "--insecure-ignore-sct",
+    "--check-claims=false",
+    "--certificate-identity-regexp",
+    "--certificate-oidc-issuer-regexp",
+)
 
 
 def _contains_secret_expression(text: str) -> bool:
@@ -38,6 +53,24 @@ def _contains_secret_expression(text: str) -> bool:
             elif token.lower() == "secrets" and previous != ".":
                 return True
         previous = token
+    return False
+
+
+def _contains_secret(value: object) -> bool:
+    pending = [value]
+    visited = set()
+    while pending:
+        nested = pending.pop()
+        if isinstance(nested, str) and _contains_secret_expression(nested):
+            return True
+        if not isinstance(nested, (dict, list)) or id(nested) in visited:
+            continue
+        visited.add(id(nested))
+        if isinstance(nested, dict):
+            pending.extend(nested)
+            pending.extend(nested.values())
+        else:
+            pending.extend(nested)
     return False
 
 
@@ -122,6 +155,10 @@ def validate_steps(value: object, location: str) -> list[str]:
             issues.extend(validate_uses(step["uses"], f"{step_location}.uses"))
         if "run" in step and (not isinstance(step["run"], str) or not step["run"].strip()):
             issues.append(f"{step_location}.run: expected non-empty literal shell text")
+        if "run" in step and isinstance(step["run"], str):
+            for flag in PROHIBITED_COSIGN_FLAGS:
+                if flag in step["run"]:
+                    issues.append(f"{step_location}.run: prohibited Cosign flag {flag}")
     return sorted(issues)
 
 
@@ -132,6 +169,7 @@ def validate_workflow(document: dict[str, object], location: str) -> list[str]:
     triggers = document.get("on")
     if isinstance(triggers, str):
         triggers = [triggers]
+    trigger_names = list(triggers) if isinstance(triggers, (dict, list)) else []
     if (
         not isinstance(triggers, (dict, list))
         or not triggers
@@ -149,11 +187,55 @@ def validate_workflow(document: dict[str, object], location: str) -> list[str]:
             issues.append(f"{job_location}: expected a mapping job")
             continue
         if "permissions" in job:
-            issues.extend(validate_permissions(job["permissions"], f"{job_location}.permissions"))
+            implementation_oidc = (
+                location == ATTESTATION_WORKFLOW
+                and trigger_names == ["workflow_call"]
+                and document.get("permissions") == {"contents": "read"}
+                and set(jobs) == {"attest"}
+                and name == "attest"
+                and "uses" not in job
+            )
+            caller_oidc = (
+                trigger_names == ["push"]
+                and isinstance(job.get("uses"), str)
+                and ATTESTATION_REF.fullmatch(job["uses"])
+                and job.get("if") == MAIN_PUSH_GUARD
+            )
+            if job["permissions"] != OIDC_PERMISSIONS or not (
+                implementation_oidc or caller_oidc
+            ):
+                issues.extend(validate_permissions(job["permissions"], f"{job_location}.permissions"))
         if "uses" in job:
             issues.extend(validate_uses(job["uses"], f"{job_location}.uses"))
-            if set(job) - {"uses", "permissions"}:
-                issues.append(f"{job_location}: caller jobs allow only uses and permissions")
+            if set(job) - {"uses", "permissions", "needs", "if", "with"}:
+                issues.append(
+                    f"{job_location}: caller jobs allow only uses, permissions, needs, if, and with"
+                )
+            if "needs" in job:
+                needs = job["needs"]
+                valid_needs = bool(JOB_NAME.fullmatch(needs)) if isinstance(needs, str) else (
+                    isinstance(needs, list)
+                    and bool(needs)
+                    and all(isinstance(item, str) and JOB_NAME.fullmatch(item) for item in needs)
+                    and len(needs) == len(set(needs))
+                )
+                if not valid_needs:
+                    issues.append(
+                        f"{job_location}.needs: expected a job name or non-empty unique list"
+                    )
+            if "if" in job and (
+                not isinstance(job["if"], str)
+                or not job["if"].strip()
+                or _contains_secret_expression(job["if"])
+                or _contains_secret_expression("${{ " + job["if"] + " }}")
+            ):
+                issues.append(f"{job_location}.if: expected a non-empty literal without secrets")
+            if "with" in job and (
+                not isinstance(job["with"], dict) or _contains_secret(job["with"])
+            ):
+                issues.append(
+                    f"{job_location}.with: expected a mapping without secret expressions"
+                )
             continue
         if job.get("runs-on") != "ubuntu-latest":
             issues.append(f"{job_location}.runs-on: expected ubuntu-latest")

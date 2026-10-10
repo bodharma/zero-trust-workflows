@@ -1,0 +1,13 @@
+name: Insecure Cosign
+on: push
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: >-
+          cosign verify --insecure-ignore-tlog --insecure-ignore-sct
+          --check-claims=false --certificate-identity-regexp '.*'
+          --certificate-oidc-issuer-regexp '.*' evidence-index.json

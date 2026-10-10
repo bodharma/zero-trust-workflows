@@ -1,0 +1,57 @@
+name: reusable-evidence-attestation
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        with:
+          version: "0.13.0"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv python install 3.13
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        with:
+          cosign-release: v3.1.3
+      - run: |
+          uv --version
+          test "$(uv --version)" = "uv 0.13.0"
+          uv run --no-project --python 3.13 python --version
+          uv run --no-project --python 3.13 python -c 'import sys; assert sys.version_info[:2] == (3, 13)'
+          cosign version
+          cosign version --json | uv run --no-project --python 3.13 python -c 'import json,sys; assert json.load(sys.stdin)["gitVersion"] == "v3.1.3"'
+      - run: uv sync --locked --dev
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: ztbp-evidence
+          path: .artifacts/trusted/evidence
+      - run: >-
+          uv run --locked ztbp-evidence attest --root .
+          --evidence-root .artifacts/trusted/evidence
+          --trust-policy trust/github-main.yaml
+          --index .artifacts/trusted/evidence-index.json
+          --bundle .artifacts/trusted/evidence-index.sigstore.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ztbp-attested-evidence
+          path: |-
+            .artifacts/trusted/evidence
+            .artifacts/trusted/evidence-index.json
+            .artifacts/trusted/evidence-index.sigstore.json
+          retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true

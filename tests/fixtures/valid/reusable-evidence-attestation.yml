@@ -1,0 +1,15 @@
+name: Attest evidence
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  attest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: cosign attest --bundle evidence-index.sigstore.json evidence-index.json

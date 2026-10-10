@@ -1,0 +1,11 @@
+name: Conformance
+on: push
+permissions:
+  contents: read
+jobs:
+  conformance:
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-conformance.yml@3d3c42e5aac5ba805825da76410c181273ba90b1
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
