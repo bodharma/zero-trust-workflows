@@ -2,12 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from ztwf.validate import load_document
+from ztwf.validate import load_document, validate_workflow
 
 ROOT = Path(__file__).resolve().parents[1]
 REUSABLE = ".github/workflows/reusable-python-uv-check.yml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 SETUP_UV = "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884"
+DIRECT_CALLER = "examples/direct-caller.yml"
+EXPERIMENTAL_SHA = "d0789582c00aee75d1f63036b3bf364c9a977599"
 
 
 def test_reusable_workflow_has_the_fixed_check_contract():
@@ -45,7 +47,21 @@ def test_self_ci_only_calls_the_reusable_workflow():
     assert workflow["jobs"] == {"check": {"uses": f"./{REUSABLE}"}}
 
 
-@pytest.mark.parametrize("relative", [REUSABLE, ".github/workflows/ci.yml"])
+def test_direct_caller_pins_the_experimental_workflow_with_the_self_ci_contract():
+    workflow, issues = load_document(ROOT, ROOT / DIRECT_CALLER)
+    assert issues == []
+    assert validate_workflow(workflow, DIRECT_CALLER) == []
+    assert workflow == {
+        "name": "ci",
+        "on": {"pull_request": None, "push": {"branches": ["main"]}},
+        "permissions": {"contents": "read"},
+        "jobs": {
+            "check": {"uses": f"bodharma/zero-trust-workflows/{REUSABLE}@{EXPERIMENTAL_SHA}"}
+        },
+    }
+
+
+@pytest.mark.parametrize("relative", [REUSABLE, ".github/workflows/ci.yml", DIRECT_CALLER])
 def test_workflows_have_no_inputs_secrets_env_or_failure_suppression(relative):
     workflow, issues = load_document(ROOT, ROOT / relative)
     assert issues == []
