@@ -66,8 +66,7 @@ public repository and its issues.
    dependency and verification commands before pushing the private copy.
 
    ```sh
-   uv sync --locked --dev && make check
-   git push -u origin main
+   uv sync --locked --dev && make check && git push -u origin main
    ```
 
    Preserve the command output as private review evidence. The private copy's
