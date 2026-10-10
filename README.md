@@ -30,11 +30,14 @@ the caller's code; the caller needs no fork or copy of this library.
 Every external workflow or action reference must use a full 40-hex SHA, never
 a mutable branch or tag. Review the workflow and its pinned actions before
 adopting a SHA. The supported V1 example pins the tested workflow commit
-`f19cd36e55729ff60aea65c9b55474835127337c`, verified by successful
-[canonical CI](https://github.com/bodharma/zero-trust-workflows/actions/runs/38059605717)
-and [consumer main CI](https://github.com/bodharma/zer_trust_infra/actions/runs/38060522185).
-Consumers must keep the full SHA pin even when a `v1.0.0` release label is
-available. To update, review the replacement workflow and action pins, change
+`80c78d69c9a8aaf969420cfe690bdeae16b95879`, verified by successful
+[canonical CI](https://github.com/bodharma/zero-trust-workflows/actions/runs/38070964419)
+and [consumer main CI](https://github.com/bodharma/zer_trust_infra/actions/runs/38071226452)
+at consumer commit `e6dee7d7c8a8727a8bbd10f86bc44ef80cab2271`.
+The `v1.0.1` release entry is being prepared for this Python 3.13 selection
+correction; immutable `v1.0.0` is superseded by the correction. Consumers must
+keep the full SHA pin even when a `v1.0.1` release label becomes available.
+To update, review the replacement workflow and action pins, change
 the caller's SHA in a pull request, and require passing caller CI before
 merging. To roll back, restore the previous reviewed SHA in the caller and
 rerun its CI.
