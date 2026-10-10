@@ -9,14 +9,14 @@ permissions:
 
 jobs:
   conformance:
-    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-conformance.yml@0000000000000000000000000000000000000000
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-conformance.yml@f451d058ca9e052997a79e4fc041b051b1f7c942
   attest:
     needs: conformance
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-attestation.yml@0000000000000000000000000000000000000000
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-attestation.yml@f451d058ca9e052997a79e4fc041b051b1f7c942
     permissions:
       contents: read
       id-token: write
   verify:
     needs: attest
-    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-verification.yml@0000000000000000000000000000000000000000
+    uses: bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-verification.yml@f451d058ca9e052997a79e4fc041b051b1f7c942

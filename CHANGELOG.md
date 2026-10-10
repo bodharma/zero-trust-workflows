@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+
+- Published [v1.1.0](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.1.0).
+- Added fixed reusable workflows for AMD64 Kubernetes conformance, main-push
+  keyless evidence attestation, and independent signature and promotion-policy
+  verification.
+- Confined `id-token: write` to the attestation job and required exact
+  repository, workflow, event, ref, issuer, predicate, and Cosign identity
+  claims before promotion input can be produced.
+- Tested workflow SHA: `f451d058ca9e052997a79e4fc041b051b1f7c942`.
+  The trusted-evidence caller example pins this immutable commit in all three
+  reusable workflow references.
+- Consumers must pin the full tested SHA, never the `v1.1.0` label. Review the
+  workflows, action pins, and consumer trust policy together; roll back by
+  restoring the previous reviewed SHA in all three caller jobs.
+
 ## 1.0.1
 
 - Published [v1.0.1](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.0.1).
