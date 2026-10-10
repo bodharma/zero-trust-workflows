@@ -1,8 +1,8 @@
 # Zero Trust GitHub Workflows
 
 `bodharma/zero-trust-workflows` provides a supported V1 reusable GitHub Actions
-check workflow for Python repositories using uv. It also defines a fixed
-trusted-evidence chain for its next release: conformance, main-only keyless
+check workflow for Python repositories using uv. It also publishes a fixed
+trusted-evidence chain in `v1.1.0`: conformance, main-only keyless
 attestation, and independent verification. These workflows deliberately expose
 no inputs or secrets. A caller can select the reviewed workflow commit, but
 cannot replace a command, runner, tool version, artifact path, or policy gate.
@@ -114,19 +114,20 @@ days.
    a locked uv project, the gate `main-conformance`, and `trust/github-main.yaml`.
 2. Copy [examples/trusted-evidence-caller.yml](examples/trusted-evidence-caller.yml)
    to `.github/workflows/trusted-evidence.yml` in the consumer repository.
-3. After the trusted-evidence release is reviewed, replace all three all-zero
-   placeholders with the same full 40-character release commit SHA.
+3. Keep all three reusable workflow references pinned to the reviewed `v1.1.0`
+   commit `f451d058ca9e052997a79e4fc041b051b1f7c942`; do not replace it with the tag.
 4. Review and bind the consumer trust policy to that workflow SHA, certificate
    identity, repository ID/name, workflow name, event, and `refs/heads/main`.
 5. Require the verification job in branch or environment protection before any
    separate deployment workflow consumes the decision.
 
-The caller also repeats the exact main-push guard and delegates `id-token: write`
-only to the attestation call. GitHub does not let a called workflow elevate above
-its caller, so both sides are required. Conformance and verification never receive
-OIDC permission. The all-zero SHA is an intentionally non-released placeholder;
-the example is documentation until the release process replaces it with the
-reviewed commit.
+The [published `v1.1.0` release](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.1.0)
+points to that immutable commit. The caller repeats the exact main-push guard and
+delegates `id-token: write` only to the attestation call. GitHub does not let a
+called workflow elevate above its caller, so both sides are required. Conformance
+and verification never receive OIDC permission. Updating the pin is a trust-policy
+change: review the new workflow bytes first, then update all three caller references
+and the policy's workflow SHA and certificate identity together.
 
 ### Fail-closed behavior
 

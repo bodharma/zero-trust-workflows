@@ -20,7 +20,7 @@ SETUP_KUBECTL = "azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e"
 DIRECT_CALLER = "examples/direct-caller.yml"
 TRUSTED_EVIDENCE_CALLER = "examples/trusted-evidence-caller.yml"
 SUPPORTED_SHA = "80c78d69c9a8aaf969420cfe690bdeae16b95879"
-UNRELEASED_SHA = "0" * 40
+TRUSTED_EVIDENCE_SHA = "f451d058ca9e052997a79e4fc041b051b1f7c942"
 MAIN_GUARD = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
 UV_PYTHON_VERSION_CHECK = """uv --version
 test "$(uv --version)" = "uv 0.13.0"
@@ -306,24 +306,24 @@ def test_trusted_evidence_caller_chains_only_the_three_pinned_workflows():
         "on": {"push": {"branches": ["main"]}},
         "permissions": {"contents": "read"},
         "jobs": {
-            "conformance": {"uses": f"{prefix}reusable-conformance.yml@{UNRELEASED_SHA}"},
+            "conformance": {"uses": f"{prefix}reusable-conformance.yml@{TRUSTED_EVIDENCE_SHA}"},
             "attest": {
                 "needs": "conformance",
                 "if": MAIN_GUARD,
-                "uses": f"{prefix}reusable-evidence-attestation.yml@{UNRELEASED_SHA}",
+                "uses": f"{prefix}reusable-evidence-attestation.yml@{TRUSTED_EVIDENCE_SHA}",
                 "permissions": {"contents": "read", "id-token": "write"},
             },
             "verify": {
                 "needs": "attest",
-                "uses": f"{prefix}reusable-evidence-verification.yml@{UNRELEASED_SHA}",
+                "uses": f"{prefix}reusable-evidence-verification.yml@{TRUSTED_EVIDENCE_SHA}",
             },
         },
     }
     assert validate_workflow(workflow, TRUSTED_EVIDENCE_CALLER) == []
     assert re.findall(r"\b[0-9a-fA-F]{40}\b", (ROOT / TRUSTED_EVIDENCE_CALLER).read_text()) == [
-        UNRELEASED_SHA,
-        UNRELEASED_SHA,
-        UNRELEASED_SHA,
+        TRUSTED_EVIDENCE_SHA,
+        TRUSTED_EVIDENCE_SHA,
+        TRUSTED_EVIDENCE_SHA,
     ]
 
 
@@ -349,6 +349,15 @@ def test_changelog_records_the_same_supported_workflow_sha():
     release = re.search(r"^## 1\.0\.1\n(.*?)(?=^## |\Z)", changelog, re.MULTILINE | re.DOTALL)
     assert release is not None
     assert re.findall(r"Tested workflow SHA: `([0-9a-f]{40})`", release[1]) == [SUPPORTED_SHA]
+
+
+def test_changelog_records_the_trusted_evidence_release_sha():
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    release = re.search(r"^## 1\.1\.0\n(.*?)(?=^## |\Z)", changelog, re.MULTILINE | re.DOTALL)
+    assert release is not None
+    assert re.findall(r"Tested workflow SHA: `([0-9a-f]{40})`", release[1]) == [
+        TRUSTED_EVIDENCE_SHA
+    ]
 
 
 @pytest.mark.parametrize("relative", [REUSABLE, ".github/workflows/ci.yml", DIRECT_CALLER])
