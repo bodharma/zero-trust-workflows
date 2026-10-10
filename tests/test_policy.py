@@ -11,6 +11,12 @@ from ztwf.validate import validate_repository
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SHA = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+ATTESTATION_WORKFLOW = ".github/workflows/reusable-evidence-attestation.yml"
+ATTESTATION_USES = (
+    "bodharma/zero-trust-workflows/.github/workflows/"
+    f"reusable-evidence-attestation.yml@{SHA}"
+)
+MAIN_PUSH_GUARD = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
 
 
 def test_empty_repository_is_invalid(tmp_path):
@@ -30,6 +36,20 @@ def test_valid_documents_pass(tmp_path, kind, extension):
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
     copyfile(FIXTURES / "valid" / f"{kind}.yml", path)
+    assert validate_repository(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("fixture", "relative"),
+    [
+        ("reusable-evidence-attestation.yml", ATTESTATION_WORKFLOW),
+        ("evidence-attestation-caller.yml", ".github/workflows/evidence.yml"),
+    ],
+)
+def test_valid_oidc_workflows_pass_only_in_the_attestation_chain(tmp_path, fixture, relative):
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    copyfile(FIXTURES / "valid" / fixture, path)
     assert validate_repository(tmp_path) == []
 
 
@@ -66,7 +86,7 @@ def test_valid_documents_pass(tmp_path, kind, extension):
         (
             "caller.yml",
             ".github/workflows/check.yml",
-            "jobs.check: caller jobs allow only uses and permissions",
+            "jobs.check: caller jobs allow only uses, permissions, needs, if, and with",
         ),
         (
             "shell.yml",
@@ -89,6 +109,80 @@ def test_invalid_fixtures_fail_closed(tmp_path, fixture, relative, expected):
     assert f"{relative}: {expected}" in issues
     assert issues == sorted(issues)
     assert all(issue.startswith(f"{relative}: ") for issue in issues)
+
+
+@pytest.mark.parametrize(
+    ("fixture", "relative", "expected"),
+    [
+        (
+            "workflow-oidc.yml",
+            ATTESTATION_WORKFLOW,
+            "permissions: expected {} or {contents: read}",
+        ),
+        (
+            "pr-triggered-oidc.yml",
+            ATTESTATION_WORKFLOW,
+            "jobs.attest.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "other-workflow-oidc.yml",
+            ".github/workflows/other.yml",
+            "jobs.attest.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "other-job-oidc.yml",
+            ATTESTATION_WORKFLOW,
+            "jobs.sign.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "write-permissions.yml",
+            ".github/workflows/write-permissions.yml",
+            "jobs.actions.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "write-permissions.yml",
+            ".github/workflows/write-permissions.yml",
+            "jobs.contents.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "secret-input.yml",
+            ".github/workflows/secret-input.yml",
+            "jobs.attest.with.token: secret expressions are forbidden",
+        ),
+        (
+            "inherit-secrets.yml",
+            ".github/workflows/inherit-secrets.yml",
+            "jobs.attest.secrets: secrets are forbidden",
+        ),
+        (
+            "mutable-action-ref.yml",
+            ".github/workflows/mutable-action-ref.yml",
+            "jobs.check.steps[0].uses: expected a safe local path or a full 40-hex SHA",
+        ),
+        (
+            "conformance-caller-oidc.yml",
+            ".github/workflows/conformance-caller.yml",
+            "jobs.conformance.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "verification-caller-oidc.yml",
+            ".github/workflows/verification-caller.yml",
+            "jobs.verify.permissions: expected {} or {contents: read}",
+        ),
+        (
+            "insecure-cosign.yml",
+            ".github/workflows/insecure-cosign.yml",
+            "jobs.check.steps[0].run: prohibited Cosign flag --insecure-ignore-tlog",
+        ),
+    ],
+)
+def test_oidc_and_caller_policy_fixtures_fail_closed(tmp_path, fixture, relative, expected):
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    copyfile(FIXTURES / "invalid" / fixture, path)
+    issues = validate_repository(tmp_path)
+    assert f"{relative}: {expected}" in issues
+    assert issues == sorted(issues)
 
 
 @pytest.mark.parametrize("value", [{}, {"contents": "read"}])
@@ -243,12 +337,144 @@ def test_reusable_caller_jobs_pass(extra):
     assert validate.validate_workflow(document, "workflow") == []
 
 
+@pytest.mark.parametrize(
+    "needs",
+    ["conformance", ["conformance"], ["conformance", "policy-check"]],
+)
+def test_reusable_caller_consumer_chain_fields_pass(needs):
+    document = workflow_document()
+    document["jobs"] = {
+        "attest": {
+            "uses": "./.github/workflows/reusable.yml",
+            "needs": needs,
+            "if": "github.ref == 'refs/heads/main'",
+            "with": {"artifact": "ztbp-evidence"},
+        }
+    }
+    assert validate.validate_workflow(document, "workflow") == []
+
+
+@pytest.mark.parametrize(
+    "needs", [None, "", " ", "not a job", [], ["check", "check"], ["check", ""]]
+)
+def test_reusable_caller_needs_must_name_unique_jobs(needs):
+    document = workflow_document()
+    document["jobs"] = {"check": {"uses": "./.github/workflows/reusable.yml", "needs": needs}}
+    assert "workflow: jobs.check.needs: expected a job name or non-empty unique list" in (
+        validate.validate_workflow(document, "workflow")
+    )
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        None,
+        True,
+        "",
+        " ",
+        "${{ secrets.TOKEN }}",
+        "secrets.TOKEN != ''",
+        "SECRETS ['TOKEN'] != ''",
+    ],
+)
+def test_reusable_caller_if_must_be_a_non_secret_literal(condition):
+    document = workflow_document()
+    document["jobs"] = {
+        "check": {"uses": "./.github/workflows/reusable.yml", "if": condition}
+    }
+    assert "workflow: jobs.check.if: expected a non-empty literal without secrets" in (
+        validate.validate_workflow(document, "workflow")
+    )
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [None, [], "artifact", {"token": "${{ secrets.TOKEN }}"}, {"${{ secrets.KEY }}": "value"}],
+)
+def test_reusable_caller_with_must_be_a_non_secret_mapping(inputs):
+    document = workflow_document()
+    document["jobs"] = {
+        "check": {"uses": "./.github/workflows/reusable.yml", "with": inputs}
+    }
+    assert "workflow: jobs.check.with: expected a mapping without secret expressions" in (
+        validate.validate_workflow(document, "workflow")
+    )
+
+
+def test_reusable_caller_with_recursive_alias_finishes_validation():
+    inputs = {}
+    inputs["loop"] = inputs
+    document = workflow_document()
+    document["jobs"] = {
+        "check": {"uses": "./.github/workflows/reusable.yml", "with": inputs}
+    }
+    assert validate.validate_workflow(document, "workflow") == []
+
+
+def test_attestation_caller_oidc_requires_exact_pinned_workflow_and_main_push_guard():
+    document = workflow_document()
+    document["on"] = "push"
+    document["jobs"] = {
+        "attest": {
+            "uses": ATTESTATION_USES,
+            "permissions": {"contents": "read", "id-token": "write"},
+            "if": MAIN_PUSH_GUARD,
+        }
+    }
+    assert validate.validate_workflow(document, "workflow") == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("on", "pull_request"),
+        ("uses", f"bodharma/zero-trust-workflows/.github/workflows/reusable-conformance.yml@{SHA}"),
+        ("uses", "./.github/workflows/reusable-evidence-attestation.yml"),
+        ("if", f"${{{{ {MAIN_PUSH_GUARD} }}}}"),
+        ("if", "github.ref == 'refs/heads/main' && github.event_name == 'push'"),
+        ("if", f"({MAIN_PUSH_GUARD})"),
+    ],
+)
+def test_attestation_caller_oidc_rejects_every_non_exact_precondition(field, value):
+    document = workflow_document()
+    document["on"] = "push"
+    job = {
+        "uses": ATTESTATION_USES,
+        "permissions": {"contents": "read", "id-token": "write"},
+        "if": MAIN_PUSH_GUARD,
+    }
+    if field == "on":
+        document["on"] = value
+    else:
+        job[field] = value
+    document["jobs"] = {"attest": job}
+    assert "workflow: jobs.attest.permissions: expected {} or {contents: read}" in (
+        validate.validate_workflow(document, "workflow")
+    )
+
+
 @pytest.mark.parametrize("field", ["runs-on", "steps", "secrets", "env", "continue-on-error"])
 def test_caller_jobs_reject_additional_fields(field):
     document = workflow_document()
     document["jobs"] = {"check": {"uses": "./.github/workflows/reusable.yml", field: True}}
-    assert "workflow: jobs.check: caller jobs allow only uses and permissions" in (
+    assert "workflow: jobs.check: caller jobs allow only uses, permissions, needs, if, and with" in (
         validate.validate_workflow(document, "workflow")
+    )
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "--insecure-ignore-tlog",
+        "--insecure-ignore-sct",
+        "--check-claims=false",
+        "--certificate-identity-regexp",
+        "--certificate-oidc-issuer-regexp",
+    ],
+)
+def test_insecure_cosign_flags_are_rejected(flag):
+    assert f"workflow: steps[0].run: prohibited Cosign flag {flag}" in validate.validate_steps(
+        [{"run": f"cosign verify {flag} value evidence-index.json"}], "workflow: steps"
     )
 
 

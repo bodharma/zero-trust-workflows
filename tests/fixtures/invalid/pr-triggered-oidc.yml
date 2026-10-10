@@ -1,0 +1,13 @@
+name: Attest evidence
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  attest:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: cosign attest evidence-index.json

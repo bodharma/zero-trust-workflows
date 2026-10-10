@@ -1,0 +1,19 @@
+name: Write permissions
+on: push
+permissions:
+  contents: read
+jobs:
+  contents:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: make check
+  actions:
+    permissions:
+      actions: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: make check
