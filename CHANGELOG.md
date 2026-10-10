@@ -2,7 +2,7 @@
 
 ## 1.0.1
 
-- Release entry being prepared; the `v1.0.1` tag has not been published.
+- Published [v1.0.1](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.0.1).
   Immutable `v1.0.0` remains unchanged and is superseded by this correction.
 - Enforced Python 3.13 selection through the existing pinned `astral-sh/setup-uv`
   action's `python-version: "3.13"` setting, retaining uv 0.13.0, locked
