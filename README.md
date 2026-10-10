@@ -81,14 +81,16 @@ timeout is a denial, never an implicit success.
 | Full action commit SHA | GitHub executes the reviewed action revision rather than a mutable tag |
 | uv 0.13.0 and Python 3.13 | Dependency resolution and the consumer runtime stay on the tested contract |
 | kind 0.33.0 checksum | The directly downloaded Kubernetes harness must match the reviewed Linux AMD64 bytes |
-| kubectl 1.35.9 and Cosign 3.1.3 | Cluster and signature behavior cannot silently move to another version |
+| kubectl 1.35.9 checksum and Cosign 3.1.3 | Cluster-client bytes and signature behavior cannot silently change |
 | `main` push guard | OIDC signing cannot run for pull-request code, another branch, or a manual event |
 
 Each workflow prints and asserts its tool versions before dependency installation
 or consumer commands. Setup actions are pinned, and the kind binary receives a
-second, byte-level SHA-256 check. The artifact actions are also pinned. Hidden
-file upload is enabled only because the exact allow-listed paths live below
-`.artifacts/`; it does not widen the upload to the repository.
+second, byte-level SHA-256 check. The kubectl setup receives the reviewed official
+checksum, and checkout does not persist its token in the consumer repository. The
+artifact actions are also pinned. Hidden file upload is enabled only because the
+exact allow-listed paths live below `.artifacts/`; it does not widen the upload to
+the repository.
 
 ### Artifacts are transport, not trust
 
@@ -100,10 +102,11 @@ digest and identity claim, and creates a new normalized
 `promotion-input.json`. Only that normalized input reaches Rego.
 
 `ztbp-promotion-input` retains only the normalized policy input for seven days so
-a failed or successful decision can be diagnosed without publishing the raw
-repository. It is uploaded only after signature verification and
-`make promotion-check` succeed. All uploads fail when their exact expected files
-are absent, and every artifact expires after seven days.
+a successful decision can be diagnosed without publishing the raw repository.
+Denied and errored runs publish no promotion-input artifact. It is uploaded only
+after signature verification and `make promotion-check` succeed. All uploads fail
+when their exact expected files are absent, and every artifact expires after seven
+days.
 
 ### Adopt the chain
 

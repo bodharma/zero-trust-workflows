@@ -11,6 +11,7 @@ CONFORMANCE = ".github/workflows/reusable-conformance.yml"
 ATTESTATION = ".github/workflows/reusable-evidence-attestation.yml"
 VERIFICATION = ".github/workflows/reusable-evidence-verification.yml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+TRUSTED_CHECKOUT = {"uses": CHECKOUT, "with": {"persist-credentials": False}}
 SETUP_UV = "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884"
 UPLOAD = "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
 DOWNLOAD = "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333"
@@ -78,7 +79,7 @@ def test_reusable_conformance_has_the_fixed_trusted_evidence_contract():
                 "runs-on": "ubuntu-latest",
                 "timeout-minutes": 30,
                 "steps": [
-                    {"uses": CHECKOUT},
+                    TRUSTED_CHECKOUT,
                     {
                         "uses": SETUP_UV,
                         "with": {
@@ -98,7 +99,15 @@ def test_reusable_conformance_has_the_fixed_trusted_evidence_contract():
                             "sudo install -m 0755 /tmp/kind /usr/local/bin/kind\n"
                         )
                     },
-                    {"uses": SETUP_KUBECTL, "with": {"version": "v1.35.9"}},
+                    {
+                        "uses": SETUP_KUBECTL,
+                        "with": {
+                            "version": "v1.35.9",
+                            "checksum": (
+                                "3cfeaf80be482b435b0aa214aff6e0b2c312ee23c0ff20810c75517b6004c6eb"
+                            ),
+                        },
+                    },
                     {
                         "run": UV_PYTHON_VERSION_CHECK
                         + "kind version\n"
@@ -138,7 +147,7 @@ def test_reusable_attestation_has_the_fixed_main_only_contract():
                 "runs-on": "ubuntu-latest",
                 "timeout-minutes": 10,
                 "steps": [
-                    {"uses": CHECKOUT},
+                    TRUSTED_CHECKOUT,
                     {
                         "uses": SETUP_UV,
                         "with": {
@@ -205,7 +214,7 @@ def test_reusable_verification_has_the_fixed_promotion_contract():
                 "runs-on": "ubuntu-latest",
                 "timeout-minutes": 10,
                 "steps": [
-                    {"uses": CHECKOUT},
+                    TRUSTED_CHECKOUT,
                     {
                         "uses": SETUP_UV,
                         "with": {
