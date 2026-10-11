@@ -59,8 +59,9 @@ flowchart LR
   A -->|ztbp-attested-evidence| V[verify job]
   T[Checked-out trust policy] --> A
   T --> V
-  V --> P[main-conformance policy]
-  P -->|pass| D[ztbp-promotion-input]
+  V --> N[normalized promotion-input.json]
+  N --> P[main-conformance policy]
+  P -->|pass| D[upload ztbp-promotion-input]
   P -->|deny or error| X[stop]
 ```
 
@@ -107,6 +108,86 @@ Denied and errored runs publish no promotion-input artifact. It is uploaded only
 after signature verification and `make promotion-check` succeed. All uploads fail
 when their exact expected files are absent, and every artifact expires after seven
 days.
+
+### Read each object before trusting it
+
+| Object | What its fields mean |
+| --- | --- |
+| Evidence YAML | Contract identifiers close the schema; control, stage, and assertion select one catalog obligation; adapter and version fields identify the implementation; status records the observation; artifact digest binds the tested subject; time, test identity, location, remediation, and redaction fields retain sanitized diagnostic context. It is still untrusted producer output. |
+| `evidence-index.json` | Repository and commit bind source; producer issuer, workflow, workflow SHA, run, attempt, event, and ref bind execution context; control-catalog digest freezes requirements; every sorted entry binds one relative evidence path and SHA-256 to its claimed control, stage, assertion, and status. The signed canonical index defines the complete set. |
+| Consumer trust policy | Repository, issuer, exact certificate identity, caller workflow name, reusable-workflow ref and SHA, event, `main` ref, predicate type, and Cosign version form the verifier's allow-list. It says who may sign; it never says the evidence passed. |
+| Consumer gate | Gate ID names the decision, adapter selects the implementation, and requirements select controls and stages. Verification expands the requirements from the checked-out catalog instead of trusting the producer's list. |
+| `promotion-input.json` | `verified` contains the checked identity and transparency result; `gate` is the expanded scope; `controls` comes from the checked-out catalog; `evidence` is the normalized assertion set; `exceptions` contains normalized waiver validity. This is the only object supplied to Rego. |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Contract
+  Contract --> Conformance: protected main push
+  Contract --> Stop: check fails
+  Conformance --> Attestation: evidence artifact complete
+  Conformance --> Stop: build or runtime fails
+  Attestation --> Verification: exact OIDC identity signs canonical index
+  Attestation --> Stop: wrong event, ref, identity, version, or Rekor failure
+  Verification --> PromotionInput: signature, claims, catalog, index, and files match
+  Verification --> Stop: identity, digest, omission, duplicate, or stale mismatch
+  PromotionInput --> Policy: run Rego on normalized input
+  Policy --> Allowed: Rego allows and artifact may upload
+  Policy --> Stop: missing, fail, unknown, or policy denial
+```
+
+The immutable release is
+[`v1.1.1`](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.1.1),
+the accepted consumer policy is
+[`trust/github-main.yaml`](https://github.com/bodharma/zer_trust_infra/blob/d1101278d3d975f3b9d45113fdb2a14a94380737/trust/github-main.yaml),
+and the complete live chain is
+[consumer run 38134599975](https://github.com/bodharma/zer_trust_infra/actions/runs/38134599975).
+
+### Reproduce and roll back
+
+Run the following from the consumer repository while the seven-day artifact still
+exists, with Cosign v3.1.3 and authenticated `gh` installed. The verifier requires
+the exact source checkout and producer context from the accepted run:
+
+```sh
+git fetch origin
+git worktree add --detach .worktrees/review-38134599975 \
+  d1101278d3d975f3b9d45113fdb2a14a94380737
+cd .worktrees/review-38134599975
+export GITHUB_REPOSITORY_ID=1413086460
+export GITHUB_REPOSITORY=bodharma/zer_trust_infra
+export GITHUB_WORKFLOW=contract-ci
+export GITHUB_EVENT_NAME=push
+export GITHUB_REF=refs/heads/main
+export GITHUB_SHA=d1101278d3d975f3b9d45113fdb2a14a94380737
+export GITHUB_RUN_ID=38134599975
+export GITHUB_RUN_ATTEMPT=1
+run_dir=.artifacts/review-38134599975
+test ! -e "$run_dir" && mkdir -p "$run_dir"
+gh run download 38134599975 --repo bodharma/zer_trust_infra \
+  --name ztbp-attested-evidence --dir "$run_dir"
+uv sync --locked --dev
+uv run --locked ztbp-evidence verify --root . \
+  --evidence-root "$run_dir/evidence" \
+  --trust-policy trust/github-main.yaml --gate main-conformance \
+  --index "$run_dir/evidence-index.json" \
+  --bundle "$run_dir/evidence-index.sigstore.json" \
+  --output "$run_dir/promotion-input.json"
+make promotion-check PROMOTION_INPUT="$run_dir/promotion-input.json"
+```
+
+Rollback is a reviewed consumer PR: restore all three reusable-workflow references,
+the trust policy's `workflow.ref`, `workflow.sha`, and `certificateIdentity` to the same
+previously reviewed commit. These six SHA-bearing values change atomically. Rerun caller
+CI and main verification. Do not move a release tag, accept an unsigned artifact,
+disable Rekor verification, or mix workflow and policy SHAs.
+
+| Current limit | Operational meaning |
+| --- | --- |
+| Consumer adapters are experimental | Signed evidence does not promote adapter maturity. |
+| Artifacts expire after seven days | They are transport and short-term diagnostics only. |
+| Rekor metadata is public | Signing identity, digests, certificate, and signature metadata are externally visible. |
+| There is no durable archive | Long-term compliance retention and legal hold are deferred. |
+| There is no cloud deployment identity | These workflows cannot deploy to AWS or another platform and implement no canary/SLO gate. |
 
 ### Adopt the chain
 
