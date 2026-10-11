@@ -30,7 +30,7 @@ jobs:
           checksum: 3cfeaf80be482b435b0aa214aff6e0b2c312ee23c0ff20810c75517b6004c6eb
       - run: |
           uv --version
-          test "$(uv --version)" = "uv 0.13.0"
+          uv --version | grep -Eq '^uv 0\.13\.0([[:space:]]|$)'
           uv run --no-project --python 3.13 python --version
           uv run --no-project --python 3.13 python -c 'import sys; assert sys.version_info[:2] == (3, 13)'
           kind version
