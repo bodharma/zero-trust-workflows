@@ -130,6 +130,37 @@ Conformance and verification never receive OIDC permission. Updating the pin is 
 trust-policy change: review the new workflow bytes first, then update all three
 caller references and the policy's workflow SHA and certificate identity together.
 
+### v1.1.1 acceptance record
+
+[Consumer main run 38134599975](https://github.com/bodharma/zer_trust_infra/actions/runs/38134599975)
+completed successfully at consumer commit
+`d1101278d3d975f3b9d45113fdb2a14a94380737`, using workflow release commit
+`0f9c834d44b63ba6587ad5c35434bd874629a687` and Cosign v3.1.3. The observed
+certificate SAN exactly matched:
+
+```text
+https://github.com/bodharma/zero-trust-workflows/.github/workflows/reusable-evidence-attestation.yml@0f9c834d44b63ba6587ad5c35434bd874629a687
+```
+
+Five copied-input negative cases failed closed:
+
+| Mutation | Exit | Promotion input created |
+| --- | ---: | --- |
+| Index byte changed | 1 | No |
+| Evidence byte changed | 1 | No |
+| Evidence file missing | 1 | No |
+| Certificate identity wrong | 1 | No |
+| Expected commit SHA wrong | 1 | No |
+
+The matching Rekor entry is log index `3206178263`, UUID
+`108e9186e8c5677a7dee3b8525cf59f8b26f504cf90b324030fbcfbc3566a2a046d75c365985ef1d`,
+with API-body SHA-256
+`91ab20c4d1b185abe1e29769fd2d0ae5218530a90f853a19e6f2556b40010cb9`.
+The API body matched the bundle and exposed only the DSSE-envelope digest,
+payload digest, signature, and verifier certificate; it exposed neither the
+predicate nor evidence content. This repository records only these audit
+identifiers and results, not the bundle or evidence artifacts.
+
 ### Fail-closed behavior
 
 The chain stops when a download is missing, a checksum or asserted version
