@@ -59,8 +59,9 @@ flowchart LR
   A -->|ztbp-attested-evidence| V[verify job]
   T[Checked-out trust policy] --> A
   T --> V
-  V --> P[main-conformance policy]
-  P -->|pass| D[ztbp-promotion-input]
+  V --> N[normalized promotion-input.json]
+  N --> P[main-conformance policy]
+  P -->|pass| D[upload ztbp-promotion-input]
   P -->|deny or error| X[stop]
 ```
 
@@ -127,9 +128,10 @@ stateDiagram-v2
   Conformance --> Stop: build or runtime fails
   Attestation --> Verification: exact OIDC identity signs canonical index
   Attestation --> Stop: wrong event, ref, identity, version, or Rekor failure
-  Verification --> Policy: signature, claims, catalog, index, and files match
+  Verification --> PromotionInput: signature, claims, catalog, index, and files match
   Verification --> Stop: identity, digest, omission, duplicate, or stale mismatch
-  Policy --> PromotionInput: Rego allows
+  PromotionInput --> Policy: run Rego on normalized input
+  Policy --> Allowed: Rego allows and artifact may upload
   Policy --> Stop: missing, fail, unknown, or policy denial
 ```
 
@@ -143,9 +145,22 @@ and the complete live chain is
 ### Reproduce and roll back
 
 Run the following from the consumer repository while the seven-day artifact still
-exists, with Cosign v3.1.3 and authenticated `gh` installed:
+exists, with Cosign v3.1.3 and authenticated `gh` installed. The verifier requires
+the exact source checkout and producer context from the accepted run:
 
 ```sh
+git fetch origin
+git worktree add --detach .worktrees/review-38134599975 \
+  d1101278d3d975f3b9d45113fdb2a14a94380737
+cd .worktrees/review-38134599975
+export GITHUB_REPOSITORY_ID=1413086460
+export GITHUB_REPOSITORY=bodharma/zer_trust_infra
+export GITHUB_WORKFLOW=contract-ci
+export GITHUB_EVENT_NAME=push
+export GITHUB_REF=refs/heads/main
+export GITHUB_SHA=d1101278d3d975f3b9d45113fdb2a14a94380737
+export GITHUB_RUN_ID=38134599975
+export GITHUB_RUN_ATTEMPT=1
 run_dir=.artifacts/review-38134599975
 test ! -e "$run_dir" && mkdir -p "$run_dir"
 gh run download 38134599975 --repo bodharma/zer_trust_infra \
@@ -161,10 +176,10 @@ make promotion-check PROMOTION_INPUT="$run_dir/promotion-input.json"
 ```
 
 Rollback is a reviewed consumer PR: restore all three reusable-workflow references,
-the trust policy's workflow SHA, and its certificate identity to the same previously
-reviewed commit. Rerun caller CI and protected-main verification. Do not move a release
-tag, accept an unsigned artifact, disable Rekor verification, or mix workflow and policy
-SHAs.
+the trust policy's `workflow.ref`, `workflow.sha`, and `certificateIdentity` to the same
+previously reviewed commit. These six SHA-bearing values change atomically. Rerun caller
+CI and main verification. Do not move a release tag, accept an unsigned artifact,
+disable Rekor verification, or mix workflow and policy SHAs.
 
 | Current limit | Operational meaning |
 | --- | --- |

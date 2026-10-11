@@ -5,7 +5,7 @@
 - Documented every trusted-evidence object, the verified success and denial state
   transitions, exact local reproduction commands, coordinated rollback, and the
   current retention, public-metadata, archive, adapter, and deployment-identity limits.
-- Recorded the accepted release, consumer trust policy, and protected-main run as
+- Recorded the accepted release, consumer trust policy, and main-branch acceptance run as
   separate reviewed links; workflow behavior and release tags are unchanged.
 
 ## 1.1.1
