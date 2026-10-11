@@ -9,6 +9,15 @@
 - Tested workflow SHA: `0f9c834d44b63ba6587ad5c35434bd874629a687`.
   The trusted-evidence caller example pins this immutable commit in all three
   reusable workflow references.
+- Accepted through successful
+  [consumer main run 38134599975](https://github.com/bodharma/zer_trust_infra/actions/runs/38134599975)
+  at consumer commit `d1101278d3d975f3b9d45113fdb2a14a94380737`, using Cosign
+  v3.1.3 and the exact released-workflow certificate identity.
+- Confirmed index-byte, evidence-byte, missing-evidence, wrong-identity, and
+  wrong-commit mutations each exit 1 without creating promotion input.
+- Audited Rekor log index `3206178263`: its API body matched the bundle and
+  disclosed only the DSSE-envelope digest, payload digest, signature, and verifier
+  certificate—not the evidence or predicate.
 - Consumers must pin the full tested SHA, never the `v1.1.1` label. Immutable
   `v1.1.0` remains unchanged and is superseded by this correction.
 
