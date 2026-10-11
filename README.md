@@ -20,6 +20,13 @@ uv sync --locked --dev && make check
 
 Here, `make check` validates the workflow policy, runs pytest, and runs Ruff.
 
+## OpenTofu source validation
+
+`reusable-opentofu-check.yml` installs the fixed OpenTofu 1.12.7 and Terramate
+0.17.2 archives after checking their SHA-256 digests, then runs the caller's
+`make iac-check` target. It has no inputs, secrets, or OIDC permission: it
+validates committed source only and cannot plan against or mutate AWS.
+
 ## Direct reuse
 
 Copy [examples/direct-caller.yml](examples/direct-caller.yml) into your

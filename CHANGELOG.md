@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a credential-free reusable OpenTofu and Terramate source-validation
+  workflow with fixed versions, archive checksums, and read-only permissions.
 - Documented every trusted-evidence object, the verified success and denial state
   transitions, exact local reproduction commands, coordinated rollback, and the
   current retention, public-metadata, archive, adapter, and deployment-identity limits.

@@ -11,6 +11,7 @@ REUSABLE = ".github/workflows/reusable-python-uv-check.yml"
 CONFORMANCE = ".github/workflows/reusable-conformance.yml"
 ATTESTATION = ".github/workflows/reusable-evidence-attestation.yml"
 VERIFICATION = ".github/workflows/reusable-evidence-verification.yml"
+IAC = ".github/workflows/reusable-opentofu-check.yml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 TRUSTED_CHECKOUT = {"uses": CHECKOUT, "with": {"persist-credentials": False}}
 SETUP_UV = "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884"
@@ -28,6 +29,23 @@ uv --version | grep -Eq '^uv 0\\.13\\.0([[:space:]]|$)'
 uv run --no-project --python 3.13 python --version
 uv run --no-project --python 3.13 python -c 'import sys; assert sys.version_info[:2] == (3, 13)'
 """
+
+
+def test_reusable_opentofu_check_has_fixed_tools_and_no_credentials():
+    workflow, issues = load_document(ROOT, ROOT / IAC)
+    assert issues == []
+    assert workflow["on"] == {"workflow_call": None}
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["iac_check"]
+    assert job["runs-on"] == "ubuntu-latest"
+    assert job["timeout-minutes"] == 15
+    assert "permissions" not in job
+    commands = "\n".join(step["run"] for step in job["steps"] if "run" in step)
+    assert "tofu_1.12.7_linux_amd64.tar.gz" in commands
+    assert "terramate_0.17.2_linux_x86_64.tar.gz" in commands
+    assert "8b0967cc14715bfb03d5e04dd0da0a47c668dcb33cb3a84996413a48b1aa51c0" in commands
+    assert "d519f118bbf2db1156df186f4162ef10d317d906af941ee6945300f777963776" in commands
+    assert commands.rstrip().endswith("make iac-check")
 
 
 def test_reusable_workflow_has_the_fixed_check_contract():
