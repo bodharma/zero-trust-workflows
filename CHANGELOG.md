@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1
+
+- Published signed [v1.1.1](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.1.1).
+- Fixed the uv 0.13.0 assertion to accept its platform suffix while continuing
+  to reject other versions and malformed prefixes. Workflow contracts,
+  permissions, policies, tool versions, and action pins are unchanged.
+- Tested workflow SHA: `0f9c834d44b63ba6587ad5c35434bd874629a687`.
+  The trusted-evidence caller example pins this immutable commit in all three
+  reusable workflow references.
+- Consumers must pin the full tested SHA, never the `v1.1.1` label. Immutable
+  `v1.1.0` remains unchanged and is superseded by this correction.
+
 ## 1.1.0
 
 - Published [v1.1.0](https://github.com/bodharma/zero-trust-workflows/releases/tag/v1.1.0).
