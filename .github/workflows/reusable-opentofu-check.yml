@@ -1,0 +1,30 @@
+name: reusable-opentofu-check
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  iac_check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --output /tmp/tofu.tar.gz https://github.com/opentofu/opentofu/releases/download/v1.12.7/tofu_1.12.7_linux_amd64.tar.gz
+          echo "8b0967cc14715bfb03d5e04dd0da0a47c668dcb33cb3a84996413a48b1aa51c0  /tmp/tofu.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/tofu.tar.gz -C /tmp tofu
+          sudo install -m 0755 /tmp/tofu /usr/local/bin/tofu
+      - run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --output /tmp/terramate.tar.gz https://github.com/terramate-io/terramate/releases/download/v0.17.2/terramate_0.17.2_linux_x86_64.tar.gz
+          echo "d519f118bbf2db1156df186f4162ef10d317d906af941ee6945300f777963776  /tmp/terramate.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/terramate.tar.gz -C /tmp terramate
+          sudo install -m 0755 /tmp/terramate /usr/local/bin/terramate
+      - run: |
+          tofu version | grep -Fx 'OpenTofu v1.12.7'
+          terramate version | grep -F '0.17.2'
+          make iac-check
