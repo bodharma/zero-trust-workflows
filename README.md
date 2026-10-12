@@ -20,13 +20,6 @@ uv sync --locked --dev && make check
 
 Here, `make check` validates the workflow policy, runs pytest, and runs Ruff.
 
-## OpenTofu source validation
-
-`reusable-opentofu-check.yml` installs the fixed OpenTofu 1.12.7 and Terramate
-0.17.2 archives after checking their SHA-256 digests, then runs the caller's
-`make iac-check` target. It has no inputs, secrets, or OIDC permission: it
-validates committed source only and cannot plan against or mutate AWS.
-
 ## Direct reuse
 
 Copy [examples/direct-caller.yml](examples/direct-caller.yml) into your
@@ -50,6 +43,23 @@ the caller's SHA in a pull request, and require passing caller CI before
 merging. To roll back, restore the previous reviewed SHA in the caller and
 rerun its CI.
 Local `./` workflow references resolve at the same commit as the caller workflow.
+
+## Credential-free OpenTofu checks
+
+[`reusable-opentofu-check.yml`](.github/workflows/reusable-opentofu-check.yml)
+executes the caller's fixed `make iac-check` target with OpenTofu 1.13.1,
+Terramate 0.17.3, uv 0.13.0, and Python 3.13. The caller must provide committed
+`pyproject.toml` and `uv.lock` files and an `iac-check` Makefile target that
+performs credential-free validation. Pin the reusable workflow reference to its
+reviewed full 40-character commit SHA.
+
+The workflow uses `contents: read`, a 15-minute Ubuntu job, SHA-pinned setup
+actions, checksum-verified tool archives, checkout without persisted
+credentials, and only the fixed non-secret Terramate safeguard override. It
+exposes no caller inputs, secrets, or OIDC permission. It has no cloud
+credentials, performs no live plan/apply or cloud API calls, and makes network
+requests only for pinned tool, Python dependency, and provider downloads. The
+caller's `make iac-check` must preserve that boundary.
 
 ## Trusted evidence chain
 

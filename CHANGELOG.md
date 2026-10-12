@@ -2,8 +2,12 @@
 
 ## Unreleased
 
-- Added a credential-free reusable OpenTofu and Terramate source-validation
-  workflow with fixed versions, archive checksums, and read-only permissions.
+- Added `reusable-opentofu-check.yml` with fixed `make iac-check`, OpenTofu
+  1.13.1, Terramate 0.17.3, uv 0.13.0, Python 3.13, SHA-pinned actions, and
+  checksum-verified tool downloads. It has no cloud credentials, performs no
+  live plan/apply or cloud API calls, and makes network requests only for pinned
+  tool, Python dependency, and provider downloads. Callers must pin its reviewed
+  full commit SHA and preserve this credential-free validation boundary.
 - Documented every trusted-evidence object, the verified success and denial state
   transitions, exact local reproduction commands, coordinated rollback, and the
   current retention, public-metadata, archive, adapter, and deployment-identity limits.
