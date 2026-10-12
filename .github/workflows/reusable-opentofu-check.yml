@@ -10,6 +10,8 @@ jobs:
   iac_check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TM_DISABLE_SAFEGUARDS: git-out-of-sync
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
