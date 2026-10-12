@@ -40,6 +40,7 @@ def test_reusable_opentofu_check_has_fixed_tools_and_no_credentials():
     assert job["runs-on"] == "ubuntu-latest"
     assert job["timeout-minutes"] == 15
     assert "permissions" not in job
+    assert job["env"] == {"TM_DISABLE_SAFEGUARDS": "git-out-of-sync"}
     commands = "\n".join(step["run"] for step in job["steps"] if "run" in step)
     assert "tofu_1.12.7_linux_amd64.tar.gz" in commands
     assert "terramate_0.17.2_linux_x86_64.tar.gz" in commands
